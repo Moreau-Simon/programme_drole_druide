@@ -131,17 +131,17 @@ def process_file(path: str, verbose: bool = False) -> List[Tuple[int, Union[floa
         
     return results
 
-# --- CLI minimal (Sans la fonction de test) ---
-def main(argv):
-    if len(argv) < 2:
-        # Message d'usage mis à jour
+# --- CLI minimal (Ajusté) ---
+def main(args): # Renommé argv en args
+    if len(args) < 2:
         print("Usage: python rpn_druide.py <input_file> [--verbose]")
         return 1
         
-    path = argv[1]
-    verbose = '--verbose' in argv
+    path = args[1]
+    verbose = '--verbose' in args
     process_file(path, verbose=verbose)
     return 0
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv))
+    # Changement final : utilisation de sys.exit() au lieu de raise SystemExit()
+    sys.exit(main(sys.argv))
