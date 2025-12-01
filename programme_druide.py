@@ -3,7 +3,7 @@
 """
 RPN evaluator for "Un drôle de calcul druide".
 Usage:
-    python rpn_druide.py input.txt
+    python rpn_druide.py input.txt [--verbose]
 Input file format: one RPN expression per line, tokens separated by spaces.
 """
 
@@ -43,10 +43,7 @@ def is_number(token: str) -> bool:
     except ValueError:
         return False
 
-# NOTE: Les fonctions op_add, op_subtract, etc. et le dictionnaire OPERATORS
-# ont été supprimés pour réduire la fragmentation excessive et améliorer la maintenabilité.
-
-# --- Évaluateur RPN (Optimisé pour la maintenabilité Embold) ---
+# --- Évaluateur RPN ---
 def evaluate_rpn(tokens: List[str]) -> float:
     """
     Evaluate a list of tokens in RPN and return the numeric result.
@@ -84,7 +81,6 @@ def evaluate_rpn(tokens: List[str]) -> float:
                 if b == 0:
                     raise DivisionByZeroError("Division par zéro")
                 result = a / b
-            # else: N'est pas nécessaire ici grâce à la vérification 'elif token in (...)'
 
             stack.append(result)
             logger.debug(f"push result={result} -> stack={stack}")
@@ -135,58 +131,12 @@ def process_file(path: str, verbose: bool = False) -> List[Tuple[int, Union[floa
         
     return results
 
-# --- Tests unitaires simples ---
-def _run_tests():
-    tests = [
-        ("3 5 +", 8),
-        ("4 7 + 3 *", 33),
-        ("3 4 7 + *", 33),
-        ("10 4 + 2 -", 12),
-        ("2 10 4 + -", -12),
-        ("4 0 /", DivisionByZeroError),
-        ("3 +", InsufficientOperandsError),
-        ("", RPNError),
-        ("2 3 4 +", RPNError), # Test expression mal formée
-        ("3.5 2 *", 7.0),
-    ]
-    
-    failures = 0
-    print("\n--- Début des tests unitaires ---")
-    for expr, expected in tests:
-        try:
-            tokens = expr.split()
-            res = evaluate_rpn(tokens)
-            
-            if isinstance(expected, type) and issubclass(expected, Exception):
-                print(f"TEST FAIL: '{expr}' attendait exception {expected.__name__}, obtenu résultat {res}")
-                failures += 1
-            elif abs(res - expected) > 1e-9:
-                print(f"TEST FAIL: '{expr}' attendait {expected}, obtenu {res}")
-                failures += 1
-            else:
-                print(f"TEST OK: '{expr}' => {res}")
-                
-        except Exception as e:
-            if isinstance(expected, type) and isinstance(e, expected):
-                print(f"TEST OK: '{expr}' a levé {e.__class__.__name__}")
-            else:
-                print(f"TEST FAIL: '{expr}' a levé {e.__class__.__name__}: {e} (au lieu de {expected.__name__ if isinstance(expected, type) else 'un résultat'})")
-                failures += 1
-                
-    if failures:
-        print(f"\n{failures} tests échoués.")
-    else:
-        print("\nTous les tests sont OK.")
-
-# --- CLI minimal ---
+# --- CLI minimal (Sans la fonction de test) ---
 def main(argv):
     if len(argv) < 2:
-        print("Usage: python rpn_druide.py <input_file> [--verbose] [--test]")
+        # Message d'usage mis à jour
+        print("Usage: python rpn_druide.py <input_file> [--verbose]")
         return 1
-        
-    if '--test' in argv:
-        _run_tests()
-        return 0
         
     path = argv[1]
     verbose = '--verbose' in argv
