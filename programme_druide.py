@@ -9,7 +9,7 @@ Input file format: one RPN expression per line, tokens separated by spaces.
 
 from __future__ import annotations
 import sys
-from typing import List, Tuple, Union, Callable, Dict
+from typing import List, Tuple, Union
 import logging
 
 # --- Exceptions spécifiques ---
@@ -43,31 +43,10 @@ def is_number(token: str) -> bool:
     except ValueError:
         return False
 
-# --- Opérations ---
-# Définition des fonctions d'opération binaires
-def op_add(a: float, b: float) -> float:
-    return a + b
+# NOTE: Les fonctions op_add, op_subtract, etc. et le dictionnaire OPERATORS
+# ont été supprimés pour réduire la fragmentation excessive et améliorer la maintenabilité.
 
-def op_subtract(a: float, b: float) -> float:
-    return a - b
-
-def op_multiply(a: float, b: float) -> float:
-    return a * b
-
-def op_divide(a: float, b: float) -> float:
-    if b == 0:
-        raise DivisionByZeroError("Division par zéro")
-    return a / b
-
-# Dictionnaire de mappage (Réduit la complexité cyclomatique dans l'évaluateur)
-OPERATORS: Dict[str, Callable[[float, float], float]] = {
-    '+': op_add,
-    '-': op_subtract,
-    '*': op_multiply,
-    '/': op_divide,
-}
-
-# --- Évaluateur RPN (Refactorisé) ---
+# --- Évaluateur RPN (Optimisé pour la maintenabilité Embold) ---
 def evaluate_rpn(tokens: List[str]) -> float:
     """
     Evaluate a list of tokens in RPN and return the numeric result.
@@ -80,12 +59,12 @@ def evaluate_rpn(tokens: List[str]) -> float:
             continue
             
         if is_number(token):
-            # Simplification : utilise float() partout pour la robustesse et la simplicité
+            # Utilise float() pour la simplicité
             num = float(token)
             stack.append(num)
             logger.debug(f"push {num} -> stack={stack}")
             
-        elif token in OPERATORS:
+        elif token in ('+', '-', '*', '/'):
             if len(stack) < 2:
                 raise InsufficientOperandsError(f"Opérateur '{token}' sans opérandes suffisants (position {idx})")
             
@@ -94,10 +73,19 @@ def evaluate_rpn(tokens: List[str]) -> float:
             a = stack.pop()
             logger.debug(f"pop b={b}, a={a} for op '{token}'")
             
-            # Utilisation du dictionnaire de fonctions
-            operator_func = OPERATORS[token]
-            result = operator_func(a, b)
-            
+            # Logique d'opération réintégrée pour éviter la fragmentation
+            if token == '+':
+                result = a + b
+            elif token == '-':
+                result = a - b
+            elif token == '*':
+                result = a * b
+            elif token == '/':
+                if b == 0:
+                    raise DivisionByZeroError("Division par zéro")
+                result = a / b
+            # else: N'est pas nécessaire ici grâce à la vérification 'elif token in (...)'
+
             stack.append(result)
             logger.debug(f"push result={result} -> stack={stack}")
             
@@ -113,7 +101,7 @@ def evaluate_rpn(tokens: List[str]) -> float:
         
     return stack[0]
 
-# --- Lecture fichier et traitement (Fonction légèrement simplifiée) ---
+# --- Lecture fichier et traitement ---
 def process_file(path: str, verbose: bool = False) -> List[Tuple[int, Union[float, str]]]:
     """
     Process each line of the file.
@@ -169,11 +157,9 @@ def _run_tests():
             tokens = expr.split()
             res = evaluate_rpn(tokens)
             
-            # Vérification si une exception était attendue mais un résultat a été obtenu
             if isinstance(expected, type) and issubclass(expected, Exception):
                 print(f"TEST FAIL: '{expr}' attendait exception {expected.__name__}, obtenu résultat {res}")
                 failures += 1
-            # Vérification du résultat numérique
             elif abs(res - expected) > 1e-9:
                 print(f"TEST FAIL: '{expr}' attendait {expected}, obtenu {res}")
                 failures += 1
@@ -181,7 +167,6 @@ def _run_tests():
                 print(f"TEST OK: '{expr}' => {res}")
                 
         except Exception as e:
-            # Vérification si l'exception attendue a été levée
             if isinstance(expected, type) and isinstance(e, expected):
                 print(f"TEST OK: '{expr}' a levé {e.__class__.__name__}")
             else:
