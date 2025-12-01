@@ -1,0 +1,22 @@
+# Fichiers de cache et compilés
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Environnements virtuels
+# C'est LE fichier le plus important à ignorer, 
+# car les dépendances doivent être gérées par requirements.txt
+venv/
+.venv/
+env/
+.env/
+
+# Fichiers spécifiques à l'OS
+.DS_Store # (Mac)
+Thumbs.db # (Windows)
+
+# Fichiers d'environnement
+.env
