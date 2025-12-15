@@ -1,151 +1,140 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-RPN evaluator for 'Un drôle de calcul druide'.
-Usage:
-    python rpn_druide.py input.txt [--verbose]
-Input file format: one RPN expression per line, tokens separated by spaces.
+Évaluateur RPN pour « Un drôle de calcul druide ».
+
+Utilisation :
+python rpn_druide.py input.txt [--verbose]
+Format du fichier d'entrée : une expression RPN par ligne, les jetons séparés par des espaces.
 """
 
-# Suppression de 'from __future__ import annotations' (Corrige E0611)
 import sys
 from typing import List, Tuple, Union
 import logging
 
 # --- Exceptions spécifiques ---
-class RPNError(Exception):
-    """Base class for RPN related errors."""
-    ... # Utilisation de ... au lieu de pass (Corrige W0707)
-
-class InsufficientOperandsError(RPNError):
-    """Raised when an operator is encountered with less than two operands."""
+class RPNError(Exception) :
+    """Classe de base pour les erreurs liées au RPN."""
     ...
 
-class DivisionByZeroError(RPNError):
-    """Raised when a division by zero is attempted."""
+class InsufficientOperandsError(RPNError) :
+    """Lorsqu'un opérateur est rencontré avec moins de deux opérandes."""
     ...
 
-class InvalidTokenError(RPNError):
-    """Raised when a token is neither a number nor a valid operator."""
+class DivisionByZeroError(RPNError) :
+    """Lors d'une tentative de division par zéro."""
+    ...
+
+class InvalidTokenError(RPNError) :
+    """Lorsqu'un jeton n'est ni un nombre ni un opérateur valide."""
     ...
 
 # --- Logger setup ---
 logger = logging.getLogger("rpn_druide")
 handler = logging.StreamHandler()
-# Suppression de la chaîne de formatage pour éviter les faux positifs B105
-# Le formatage par défaut est souvent suffisant.
-# formatter = logging.Formatter("[%(levelname)s] %(message)s")
-# handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 
 # --- Fonctions utilitaires ---
-def is_number(token: str) -> bool:
-    """Check if a string token can be parsed as a float.""" # Ajout Docstring (Corrige C0116)
-    try:
+def is_number(token: str) -> bool :
+    """Vérifie si un jeton de chaîne peut être analysé comme un nombre flottant."""
+    try :
         float(token)
         return True
-    except ValueError:
+    except ValueError :
         return False
 
-# --- Évaluateur RPN (Simplifié pour R0912) ---
-def evaluate_rpn(tokens: List[str]) -> float:
+# --- Évaluateur RPN ---
+def evaluate_rpn(tokens: List[str]) -> float :
     """
-    Evaluate a list of tokens in RPN and return the numeric result.
-    Raises RPNError subclasses for controlled errors.
+    Évalue une liste de jetons en notation RPN et renvoie le résultat numérique.
+    Lève des exceptions de type RPNError en cas d'erreurs contrôlées.
     """
     stack: List[float] = []
     
-    for idx, token in enumerate(tokens):
-        if not token:
+    for idx, token in enumerate(tokens) :
+        if not token :
             continue
             
-        if is_number(token):
+        if is_number(token) :
             num = float(token)
             stack.append(num)
             logger.debug(f"push {num} -> stack={stack}")
             
-        elif token in ('+', '-', '*', '/'):
-            if len(stack) < 2:
-                raise InsufficientOperandsError(
-                    f"Opérateur '{token}' sans opérandes suffisants (position {idx})"
-                ) # Ligne longue coupée (Corrige C0301)
+        elif token in ('+', '-', '*', '/') :
+            if len(stack) < 2 :
+                raise InsufficientOperandsError(f"Opérateur '{token}' sans opérandes suffisants (position {idx})")
             
             b = stack.pop()
             a = stack.pop()
             logger.debug(f"pop b={b}, a={a} for op '{token}'")
             
-            # Utilisation de la structure if/else plus compacte pour R0912
-            if token == '+':
+            if token == '+' :
                 result = a + b
-            elif token == '-':
+            elif token == '-' :
                 result = a - b
-            elif token == '*':
+            elif token == '*' :
                 result = a * b
-            else: # Doit être '/'
-                if b == 0:
+            else :
+                if b == 0 :
                     raise DivisionByZeroError("Division par zéro")
                 result = a / b
 
             stack.append(result)
-            logger.debug(f"push result={result} -> stack={stack}")
+            logger.debug(f"push result = {result} -> stack={stack}")
             
-        else:
-            raise InvalidTokenError(
-                f"Token invalide: '{token}' (position {idx})"
-            ) # Ligne longue coupée (Corrige C0301)
+        else :
+            raise InvalidTokenError(f"Token invalide : '{token}' (position {idx})")
             
-    if len(stack) == 0:
+    if len(stack) == 0 :
         raise RPNError("Expression vide ou résultat absent")
     
-    if len(stack) > 1:
-        raise RPNError(
-            f"Expression mal formée: {len(stack)} valeurs restantes sur la pile: {stack}"
-        ) # Ligne longue coupée (Corrige C0301)
+    if len(stack) > 1 :
+        raise RPNError(f"Expression mal formée : {len(stack)} valeurs restantes sur la pile : {stack}")
         
     return stack[0]
 
 # --- Lecture fichier et traitement ---
 def process_file(path: str, verbose: bool = False) -> List[Tuple[int, Union[float, str]]]:
     """
-    Process each line of the file, evaluating the RPN expression.
-    Returns list of tuples (line_number, result_or_error_message).
+    Traite chaque ligne du fichier en évaluant l'expression RPN.
+    Renvoie une liste de tuples (numéro_de_ligne, résultat_ou_message_d'erreur).
     """
     results = []
-    if verbose:
+    if verbose :
         logger.setLevel(logging.DEBUG)
         
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            for i, raw_line in enumerate(f, start=1):
+    try :
+        with open(path, 'r', encoding='utf-8') as f :
+            for i, raw_line in enumerate(f, start=1) :
                 line = raw_line.strip()
-                if not line or line.startswith('#'):
+                if not line or line.startswith('#') :
                     continue
                     
                 tokens = line.split()
                 
-                try:
+                try :
                     res = evaluate_rpn(tokens)
                     results.append((i, res))
                     logger.info(f"Ligne {i}: {line} => {res}")
-                except RPNError as e:
+                except RPNError as e :
                     msg = f"Erreur ligne {i}: {e}"
                     results.append((i, msg))
                     logger.error(msg)
                     
-    except FileNotFoundError:
+    except FileNotFoundError :
         logger.error(f"Fichier introuvable: {path}")
         raise
         
     return results
 
 # --- CLI minimal ---
-def main(args):
+def main(args) :
     """
-    Main function to handle command line arguments and process the RPN file.
-    """ # Ajout Docstring (Corrige C0116)
-    if len(args) < 2:
-        print("Usage: python rpn_druide.py <input_file> [--verbose]")
+    Fonction principale : gérer les arguments de la ligne de commande et traiter le fichier RPN.
+    """
+    if len(args) < 2 :
+        print("Usage : python rpn_druide.py <input_file> [--verbose]")
         return 1
         
     path = args[1]
@@ -153,5 +142,5 @@ def main(args):
     process_file(path, verbose=verbose)
     return 0
 
-if __name__ == "__main__":
+if __name__ == "__main__" :
     sys.exit(main(sys.argv))
