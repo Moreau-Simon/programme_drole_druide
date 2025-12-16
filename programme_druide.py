@@ -11,24 +11,24 @@ Format du fichier d'entrée : une expression RPN par ligne, les jetons séparés
 import sys
 from typing import List, Tuple, Union
 import logging
-import operator # Ajout pour simplifier les branches
+import operator
 
 # --- Exceptions spécifiques ---
 class RPNError(Exception) :
     """Classe de base pour les erreurs liées au RPN."""
-    ...
+    pass
 
 class InsufficientOperandsError(RPNError) :
     """Lorsqu'un opérateur est rencontré avec moins de deux opérandes."""
-    ...
+    pass
 
 class DivisionByZeroError(RPNError) :
     """Lors d'une tentative de division par zéro."""
-    ...
+    pass
 
 class InvalidTokenError(RPNError) :
     """Lorsqu'un jeton n'est ni un nombre ni un opérateur valide."""
-    ...
+    pass
 
 # --- Logger setup ---
 logger = logging.getLogger("rpn_druide")
@@ -36,22 +36,17 @@ handler = logging.StreamHandler()
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 
-# --- Opérations RPN pour simplifier les branches ---
-# Dictionnaire pour remplacer les if/elif/else dans evaluate_rpn
-# Cela corrige le R0912-tooManyBranches
-OPERATIONS = {
-    '+': operator.add,
-    '-': operator.sub,
-    '*': operator.mul,
-    '/': operator.truediv
+# --- Opérations ---
+OPS = {
+    '+': operator.add, '-': operator.sub,
+    '*': operator.mul, '/': operator.truediv
 }
 
 # --- Fonctions utilitaires ---
 def is_number(token: str) -> bool :
     """Vérifie si un jeton de chaîne peut être analysé comme un nombre flottant."""
     try :
-        # Correction C0301-lineTooLong en s'assurant que la ligne ne dépasse pas 120 caractères
-        float(token) 
+        float(token)
         return True
     except ValueError :
         return False
@@ -73,22 +68,19 @@ def evaluate_rpn(tokens: List[str]) -> float :
             stack.append(num)
             logger.debug(f"push {num} -> stack={stack}")
             
-        elif token in OPERATIONS :
+        elif token in OPS :
             if len(stack) < 2 :
-                raise InsufficientOperandsError(
-                    f"Opérateur '{token}' sans opérandes suffisants (position {idx})"
-                ) # Correction C0301-lineTooLong : ligne longue coupée
+                msg = f"Opérateur '{token}' sans opérandes (pos {idx})"
+                raise InsufficientOperandsError(msg)
                 
             b = stack.pop()
             a = stack.pop()
             logger.debug(f"pop b={b}, a={a} for op '{token}'")
             
-            # Utilisation du dictionnaire OPERATIONS pour éliminer les if/elif/else (Correction R0912)
             if token == '/' and b == 0 :
                 raise DivisionByZeroError("Division par zéro")
             
-            result = OPERATIONS[token](a, b) # Appel de la fonction appropriée
-            
+            result = OPS[token](a, b)
             stack.append(result)
             logger.debug(f"push result = {result} -> stack={stack}")
             
@@ -99,10 +91,9 @@ def evaluate_rpn(tokens: List[str]) -> float :
         raise RPNError("Expression vide ou résultat absent")
     
     if len(stack) > 1 :
-        raise RPNError(
-            f"Expression mal formée : {len(stack)} valeurs restantes sur la pile : {stack}"
-        ) # Correction C0301-lineTooLong : ligne longue coupée
-            
+        msg = f"Mal formé : {len(stack)} restants : {stack}"
+        raise RPNError(msg)
+        
     return stack[0]
 
 # --- Lecture fichier et traitement ---
@@ -116,9 +107,7 @@ def process_file(path: str, verbose: bool = False) -> List[Tuple[int, Union[floa
         logger.setLevel(logging.DEBUG)
         
     try :
-        # Modification: Ajout de 'newline=""' pour une gestion robuste des fins de ligne
-        # C'est une correction de bonne pratique qui peut aider à l'aspect sécurité/robustesse
-        with open(path, 'r', encoding='utf-8', newline="") as f : 
+        with open(path, 'r', encoding='utf-8', newline='') as f :
             for i, raw_line in enumerate(f, start=1) :
                 line = raw_line.strip()
                 if not line or line.startswith('#') :
@@ -135,8 +124,8 @@ def process_file(path: str, verbose: bool = False) -> List[Tuple[int, Union[floa
                     results.append((i, msg))
                     logger.error(msg)
                     
-    except FileNotFoundError :
-        logger.error(f"Fichier introuvable: {path}")
+    except (FileNotFoundError, PermissionError) :
+        logger.error(f"Fichier inaccessible: {path}")
         raise
         
     return results
@@ -153,15 +142,9 @@ def main(args) :
     path = args[1]
     verbose = '--verbose' in args
     
-    # Gestion des arguments supplémentaires pour éviter un index out of range si plus de 3 args
-    if len(args) > 3 or (len(args) == 3 and not verbose):
-         print("Usage : python rpn_druide.py <input_file> [--verbose]")
-         return 1
-         
     try:
         process_file(path, verbose=verbose)
-    except Exception:
-        # L'exception est déjà loguée dans process_file, mais on s'assure que le programme s'arrête
+    except (FileNotFoundError, PermissionError, UnicodeDecodeError):
         return 1
         
     return 0
