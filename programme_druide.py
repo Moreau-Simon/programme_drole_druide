@@ -2,10 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Évaluateur RPN pour « Un drôle de calcul druide ».
-
-Utilisation :
-python rpn_druide.py input.txt [--verbose]
-Format du fichier d'entrée : une expression RPN par ligne, les jetons séparés par des espaces.
+Utilisation : python rpn_druide.py input.txt [--verbose]
 """
 
 import sys
@@ -14,23 +11,19 @@ import logging
 import operator
 
 # --- Exceptions spécifiques ---
-class RPNError(Exception) :
-    """Classe de base pour les erreurs liées au RPN."""
-    pass
+class RPNError(Exception):
+    """Erreur de base."""
 
-class InsufficientOperandsError(RPNError) :
-    """Lorsqu'un opérateur est rencontré avec moins de deux opérandes."""
-    pass
+class InsufficientOperandsError(RPNError):
+    """Manque d'opérandes."""
 
-class DivisionByZeroError(RPNError) :
-    """Lors d'une tentative de division par zéro."""
-    pass
+class DivisionByZeroError(RPNError):
+    """Division par zéro."""
 
-class InvalidTokenError(RPNError) :
-    """Lorsqu'un jeton n'est ni un nombre ni un opérateur valide."""
-    pass
+class InvalidTokenError(RPNError):
+    """Jeton invalide."""
 
-# --- Logger setup ---
+# --- Configuration du Logger ---
 logger = logging.getLogger("rpn_druide")
 handler = logging.StreamHandler()
 logger.addHandler(handler)
@@ -43,111 +36,80 @@ OPS = {
 }
 
 # --- Fonctions utilitaires ---
-def is_number(token: str) -> bool :
-    """Vérifie si un jeton de chaîne peut être analysé comme un nombre flottant."""
-    try :
+def is_number(token: str) -> bool:
+    """Vérifie si le jeton est un nombre."""
+    try:
         float(token)
         return True
-    except ValueError :
+    except ValueError:
         return False
 
 # --- Évaluateur RPN ---
-def evaluate_rpn(tokens: List[str]) -> float :
-    """
-    Évalue une liste de jetons en notation RPN et renvoie le résultat numérique.
-    Lève des exceptions de type RPNError en cas d'erreurs contrôlées.
-    """
+def evaluate_rpn(tokens: List[str]) -> float:
+    """Évalue une liste de jetons RPN."""
     stack: List[float] = []
-    
-    for idx, token in enumerate(tokens) :
-        if not token :
+    for idx, token in enumerate(tokens):
+        if not token:
             continue
-            
-        if is_number(token) :
+        if is_number(token):
             num = float(token)
             stack.append(num)
-            logger.debug(f"push {num} -> stack={stack}")
-            
-        elif token in OPS :
-            if len(stack) < 2 :
-                msg = f"Opérateur '{token}' sans opérandes (pos {idx})"
+            logger.debug("push %f", num)
+        elif token in OPS:
+            if len(stack) < 2:
+                msg = f"Opérateur '{token}' seul à la pos {idx}"
                 raise InsufficientOperandsError(msg)
-                
-            b = stack.pop()
-            a = stack.pop()
-            logger.debug(f"pop b={b}, a={a} for op '{token}'")
-            
-            if token == '/' and b == 0 :
-                raise DivisionByZeroError("Division par zéro")
-            
-            result = OPS[token](a, b)
-            stack.append(result)
-            logger.debug(f"push result = {result} -> stack={stack}")
-            
-        else :
-            raise InvalidTokenError(f"Token invalide : '{token}' (position {idx})")
-            
-    if len(stack) == 0 :
-        raise RPNError("Expression vide ou résultat absent")
-    
-    if len(stack) > 1 :
-        msg = f"Mal formé : {len(stack)} restants : {stack}"
-        raise RPNError(msg)
-        
+            val_b = stack.pop()
+            val_a = stack.pop()
+            if token == '/' and val_b == 0:
+                raise DivisionByZeroError("Zéro division")
+            res = OPS[token](val_a, val_b)
+            stack.append(res)
+        else:
+            raise InvalidTokenError(f"Token '{token}' inconnu")
+    if not stack:
+        raise RPNError("Pile vide")
+    if len(stack) > 1:
+        raise RPNError(f"Pile mal formée: {len(stack)} restants")
     return stack[0]
 
-# --- Lecture fichier et traitement ---
-def process_file(path: str, verbose: bool = False) -> List[Tuple[int, Union[float, str]]]:
-    """
-    Traite chaque ligne du fichier en évaluant l'expression RPN.
-    Renvoie une liste de tuples (numéro_de_ligne, résultat_ou_message_d'erreur).
-    """
+# --- Traitement ---
+def process_file(path: str, verbose: bool = False) -> List:
+    """Traite le fichier ligne par ligne."""
     results = []
-    if verbose :
+    if verbose:
         logger.setLevel(logging.DEBUG)
-        
-    try :
-        with open(path, 'r', encoding='utf-8', newline='') as f :
-            for i, raw_line in enumerate(f, start=1) :
+    try:
+        with open(path, 'r', encoding='utf-8', newline='') as file_ptr:
+            for i, raw_line in enumerate(file_ptr, start=1):
                 line = raw_line.strip()
-                if not line or line.startswith('#') :
+                if not line or line.startswith('#'):
                     continue
-                    
-                tokens = line.split()
-                
-                try :
-                    res = evaluate_rpn(tokens)
+                try:
+                    res = evaluate_rpn(line.split())
                     results.append((i, res))
-                    logger.info(f"Ligne {i}: {line} => {res}")
-                except RPNError as e :
-                    msg = f"Erreur ligne {i}: {e}"
-                    results.append((i, msg))
-                    logger.error(msg)
-                    
-    except (FileNotFoundError, PermissionError) :
-        logger.error(f"Fichier inaccessible: {path}")
+                    logger.info("Ligne %d: %f", i, res)
+                except RPNError as err:
+                    logger.error("Ligne %d: %s", i, err)
+                    results.append((i, str(err)))
+    except (FileNotFoundError, PermissionError) as err:
+        logger.error("Erreur fichier: %s", err)
         raise
-        
     return results
 
-# --- CLI minimal ---
-def main(args) :
-    """
-    Fonction principale : gérer les arguments de la ligne de commande et traiter le fichier RPN.
-    """
-    if len(args) < 2 :
-        print("Usage : python rpn_druide.py <input_file> [--verbose]")
+# --- Point d'entrée ---
+def main(args: List[str]) -> int:
+    """Fonction principale."""
+    if len(args) < 2:
+        print("Usage: python rpn_druide.py <file> [--verbose]")
         return 1
-        
-    path = args[1]
-    verbose = '--verbose' in args
-    
+    f_path = args[1]
+    is_verbose = '--verbose' in args
     try:
-        process_file(path, verbose=verbose)
-    except (FileNotFoundError, PermissionError, UnicodeDecodeError):
+        process_file(f_path, is_verbose)
+    except (OSError, UnicodeDecodeError):
         return 1
-        
     return 0
 
-if __name__ == "__main__" :
+if __name__ == "__main__":
     sys.exit(main(sys.argv))
